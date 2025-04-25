@@ -1,0 +1,189 @@
+---
+title: "Dashboard Mock-Up"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+<style type="text/css">
+.main-container {
+  max-width: 1500px;
+  margin-left: auto;
+  margin-right: auto;
+}
+</style>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, fig.dim = c(11,4))
+source(file = "analysis_script.R")
+source(file = "challenges_analysis.R")
+# source(file = "optimization_script.R")
+```
+
+## KPI's: Yearly Avg    
+
+* Excluding log-ins missing model score   
+
+
+```{r}
+bind_rows(
+  opt_data %>% 
+    calc_kpis() %>% 
+    mutate(optimization_status = "Before Optimization"),
+  
+  opt_data1 %>% 
+    calc_kpis(login_success_col = allow_login) %>% 
+    mutate(optimization_status = "Naive TH"),
+  
+  opt_data2 %>% 
+    calc_kpis(login_success_col = allow_login) %>% 
+    mutate(optimization_status = "+ Segmentation")
+) %>% 
+  select(optimization_type = optimization_status, confirmed_fruad_rate, net_fraud_rate, fraud_coverage, insult_rate) %>% 
+  create_rmd_table_2(col_to_percent = c(2:5))
+```
+
+
+## KPI's: Weekly {.tabset}  
+
+```{r, warning=FALSE, message=FALSE, results='asis', fig.dim = c(14,5)}
+kpis_over_time_opt_data <- bind_rows(
+  opt_data %>% 
+    calc_kpis_over_time(time_col = 'login_week') %>% 
+    mutate(optimization_status = "Before Optimization"),
+  
+  opt_data1 %>% 
+    calc_kpis_over_time(time_col = 'login_week', login_success_col = allow_login) %>% 
+    mutate(optimization_status = "Naive TH Optimization"),
+  
+  # opt_data2 %>% 
+  #   calc_kpis_over_time(time_col = 'login_week', login_success_col = allow_login) %>% 
+  #   mutate(optimization_status = "main + 1seg Optimization"),
+  
+  opt_data2_plus_safety %>% ####  main TH + new device 1st challenge success
+  calc_kpis_over_time(time_col = 'login_week', login_success_col = allow_login) %>% 
+    mutate(optimization_status = "+Segmentation")
+
+) %>% 
+  select(login_week, optimization_status, confirmed_fruad_rate, net_fraud_rate, fraud_coverage, insult_rate) %>% 
+  pivot_longer(cols = c(confirmed_fruad_rate, net_fraud_rate, fraud_coverage, insult_rate), names_to = "kpi") %>% 
+  group_by(optimization_status, kpi) %>% 
+  mutate(kpi = factor(kpi, levels = c("net_fraud_rate", "fraud_coverage", "insult_rate", "confirmed_fruad_rate")),
+         optimization_status = factor(optimization_status, levels = c("Before Optimization", "Naive TH Optimization", "+Segmentation"), ordered = T),
+         yearly_avg = mean(value))
+
+kpis_over_time_opt_plots <- list(
+  net_fraud_rate = kpis_over_time_opt_data %>% 
+    filter(kpi == "net_fraud_rate") %>% 
+    mutate(kpi = GLITr::toproper(kpi)) %>% 
+    ggplot() +
+    geom_line(aes(x = login_week, y = value, colour = optimization_status,
+                  group = optimization_status,
+                  text = paste0(
+                    optimization_status, "\n",
+                    "Week of Login: ", format(login_week, '%b-%d, %Y'), "\n",
+                    "Net Fraud Rate: ", percent(value, 0.1)
+                  ))) +
+    scale_y_continuous(labels = percent_format(), n.breaks = 11) +
+    # facet_wrap(vars(kpi),ncol = 1) +
+    # geom_hline(aes(yintercept = yearly_avg, colour = optimization_status), linetype = 2, alpha = 0.3) +
+    theme_bw() +
+    xlab("Login Week") +
+    ylab("") +
+    scale_color_manual("", values = c("Before Optimization" = "#e76f51", "Naive TH Optimization" = "#353535", "+Segmentation" = "#2a9d8f")) +
+    ggtitle("Net Fraud Rate") +
+    theme(legend.position = "bottom", 
+          text = element_text(size = 14)
+          # ,strip.background = element_rect(fill = "#fdf0d5"),
+          # strip.text.x = element_text(size = 22, color = "#003049")
+          ), #+
+    # ggtitle("Performance Simulation")
+  
+  fraud_coverage = kpis_over_time_opt_data %>% 
+    filter(kpi == "fraud_coverage") %>% 
+    mutate(kpi = GLITr::toproper(kpi)) %>% 
+    ggplot() +
+    geom_line(aes(x = login_week, 
+                  y = value, 
+                  colour = optimization_status,
+                  group = optimization_status,
+                  text = paste0(
+                    optimization_status, "\n",
+                    "Week of Login: ", format(login_week, '%b-%d, %Y'), "\n",
+                    "Fraud Coverage: ", percent(value, 0.1)
+                  )
+                  )
+              ) +
+    scale_y_continuous(labels = percent_format(), n.breaks = 11) +
+    # facet_wrap(vars(kpi),ncol = 1) +
+    # geom_hline(aes(yintercept = yearly_avg, colour = optimization_status), linetype = 2, alpha = 0.3) +
+    theme_bw() +
+    xlab("Login Week") +
+    ylab("") +
+    scale_color_manual("", values = c("Before Optimization" = "#e76f51", "Naive TH Optimization" = "#353535", "+Segmentation" = "#2a9d8f")) +
+    ggtitle("Fraud Coverage") +
+    theme(legend.position = "bottom", 
+          text = element_text(size = 14)
+          # ,strip.background = element_rect(fill = "#fdf0d5"),
+          # strip.text.x = element_text(size = 22, color = "#003049")
+          ),
+  
+  insult_rate = kpis_over_time_opt_data %>% 
+    filter(kpi == "insult_rate") %>% 
+    mutate(kpi = GLITr::toproper(kpi)) %>% 
+    ggplot() +
+    geom_line(aes(x = login_week, y = value, colour = optimization_status,
+                  group = optimization_status,
+                  text = paste0(
+                    optimization_status, "\n",
+                    "Week of Login: ", format(login_week, '%b-%d, %Y'), "\n",
+                    "Insult Rate: ", percent(value, 0.1)
+                  ))) +
+    scale_y_continuous(labels = percent_format(), n.breaks = 11) +
+    # facet_wrap(vars(kpi),ncol = 1) +
+    # geom_hline(aes(yintercept = yearly_avg, colour = optimization_status), linetype = 2, alpha = 0.3) +
+    theme_bw() +
+    xlab("Login Week") +
+    ylab("") +
+    scale_color_manual("", values = c("Before Optimization" = "#e76f51", "Naive TH Optimization" = "#353535", "+Segmentation" = "#2a9d8f")) +
+    ggtitle("Insult Rate") +
+    theme(legend.position = "bottom", 
+          text = element_text(size = 14)
+          # ,strip.background = element_rect(fill = "#fdf0d5"),
+          # strip.text.x = element_text(size = 22, color = "#003049")
+          ),
+  
+  confirmed_fruad_rate = kpis_over_time_opt_data %>% 
+    filter(kpi == "confirmed_fruad_rate", optimization_status =="Before Optimization") %>% 
+    mutate(kpi = GLITr::toproper(kpi)) %>% 
+    ggplot() +
+    geom_line(aes(x = login_week, y = value,
+                  group = 1,
+                  text = paste0(
+                    "Week of Login: ", format(login_week, '%b-%d, %Y'), "\n",
+                    "Confirmed Fraud Rate: ", percent(value, 0.1)
+                  )), color = "#353535") +
+    scale_y_continuous(labels = percent_format(), n.breaks = 11) +
+    # facet_wrap(vars(kpi),ncol = 1) +
+    # geom_hline(aes(yintercept = yearly_avg), linetype = 2, alpha = 0.3) +
+    theme_bw() +
+    xlab("Login Week") +
+    ylab("") +
+    # scale_color_manual("", values = c("Before Optimization" = "#e76f51", "Naive TH Optimization" = "#353535", "+Segmentation" = "#2a9d8f")) +
+    ggtitle("Confirmed Fraud Rate") +
+    theme(legend.position = "bottom", 
+          text = element_text(size = 14)
+          # ,strip.background = element_rect(fill = "#fdf0d5"),
+          # strip.text.x = element_text(size = 22, color = "#003049")
+          )
+)
+  
+pad_html(str = "Net Fraud Rate", header_num = 3)
+ggplotly(kpis_over_time_opt_plots$net_fraud_rate, tooltip = "text")
+pad_html(str = "Fraud Coverage", header_num = 3)
+ggplotly(kpis_over_time_opt_plots$fraud_coverage, tooltip = "text")
+pad_html(str = "Insult Rate", header_num = 3)
+ggplotly(kpis_over_time_opt_plots$insult_rate, tooltip = "text")
+pad_html(str = "Confirmed Fraud Rate", header_num = 3)
+ggplotly(kpis_over_time_opt_plots$confirmed_fruad_rate, tooltip = "text")
+```
+

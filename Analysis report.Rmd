@@ -1,0 +1,174 @@
+---
+title: "Dashboard Mock-Up"
+author: "Yuval Vizan"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+<style type="text/css">
+.main-container {
+  max-width: 1300px;
+  margin-left: auto;
+  margin-right: auto;
+}
+</style>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, fig.dim = c(11,4))
+source(file = "analysis_script.R")
+source(file = "challenges_analysis.R")
+source(file = "optimization_script.R")
+```
+
+
+# {.tabset}  
+
+## Date Overview & Exploration  
+
+**You are responsible for providing leadership with insights into Intuit's ability to protect its customers.**    
+**Suggest several metrics that will provide insights into the data. Include a clear definition and rationale for each one.**    
+**Create a mock-up of a dashboard that displays how these metrics change over time.**   
+**Based on your findings, what insights would you share with your leadership?**     
+
+
+* ~2300 logins per month (~50% of those are fraud)  
+* all non-fraud log-ins are part of related to the same product category 'Other'  
+* 
+
+### Logins Volume {.tabset}  
+
+
+
+```{r, results='asis', message=FALSE, warning=FALSE}
+pad_html("Monthly", 4)
+login_cnt_over_time$monthly_fig
+login_cnt_over_time$monthly_fig_by_cat
+
+pad_html("Weekly", 4)
+login_cnt_over_time$weekly_fig
+login_cnt_over_time$weekly_fig_by_cat
+
+```
+
+### General Exploration {.tabset} 
+
+```{r, results='asis', message=FALSE, warning=FALSE}
+pad_html("Account Status", 4)
+profile_status_plot
+pad_html("Device Status", 4)
+new_device_sahre_plot
+new_device_sahre_overtime_plot
+
+pad_html("Session Time", 4)
+pad_html("**Fraudulent logins tend to have a much longer session time**")
+session_time_summary %>% 
+  mutate(across(.cols = c(avg_session_time, median_session_time, max_session_time), .fns = ~round(.x, 1))) %>% 
+  create_rmd_table_2(caption = "Measured In Minutes", col_to_factor = 1, col_to_comma = c(6))
+session_length_density
+
+pad_html("Score Distribution by Fraud Status", 4)
+pad_html("* Significant amount of scores is missing from the non-fraud login population - but model fraud separation is still very convincing")
+score_nas %>%
+  create_rmd_table_2(col_to_factor = 1, col_to_comma = c(2, 3), col_to_percent = 4)
+score_distribution
+
+pad_html("Challenges Data", 4)
+  pad_html("How many logins are challenged at all?", 5)
+  knitr::opts_chunk$set(echo = FALSE, fig.dim = c(11,6))
+  pad_html("* While steady (high) for new devices, challenge rate for existing devices goes way up mid april - I think this is related to population composition change in mid April post tax season")
+  any_challenge_rate
+
+  pad_html("How are customer challenged?", 5)
+  pad_html("* good logins are mostly challenged with pswd, and unproportionally failing at Email & SMS")
+  pad_html("* fraud logins are unproportionally failing at Voice challenge but its a small group - consider using this more?")
+  challenge_type_distribution$overall
+  challenge_type_distribution$failed_nonfailed_comparison
+  
+  pad_html("Failure Rate over time", 5)
+  pad_html("* good customer failure rate drops mid April (Tax season?) - this is mostly coming from SMS & pswd challenges")
+  fail_rate_over_time_figs$failed_anything
+  fail_rate_over_time_figs$fail_rate_specific
+  
+  pad_html("Not very intersting", 5)
+  challenge_type_over_time
+
+pad_html("Account Age", 4)
+account_age_density
+
+pad_html("Login Hour Distribution", 4)
+login_hour_distribution
+
+pad_html("Maturation")
+maturation_fig
+
+```
+
+## Dashboard Mock-Up  
+
+### KPIs Overview  
+
+```{r, results='asis', message=FALSE, warning=FALSE}
+kpi_overview %>% 
+  create_rmd_table_2(col_to_comma = c(1:3), col_to_percent = c(4:7), other_extensions = NULL)
+
+kpi_by_prod %>% 
+  create_rmd_table_2(col_to_comma = c(2:4), col_to_percent = c(5:8), other_extensions = NULL, caption = "By Product")
+```
+
+
+### KPIs Over Time {.tabset} 
+
+
+```{r, results='asis', message=FALSE, warning=FALSE, fig.dim = c(13,3)}
+pad_html("Monthly", 4)
+kpis_over_time_plots$confirmd_fraud_rate_monthly
+kpis_over_time_plots$fraud_coverage_monthly
+kpis_over_time_plots$insult_rate_monthly
+pad_html("Weekly", 4)
+pad_html("Something  clearly changes in mid April - Fraud Rate goes up at the same time as Login completion rate goes down - I think this is related to TT seasonality")
+kpis_over_time_plots$confirmd_fraud_rate_weekly
+kpis_over_time_plots$fraud_coverage_weekly
+kpis_over_time_plots$insult_rate_weekly
+```
+
+### Can we protect our customers?   
+
+```{r}
+tradeoff_plt
+kpis_over_time_opt
+
+ggplotly(tst_segment3, tooltip = "text")
+```
+
+
+## Insights??   
+
+* Due to the fraud level in new devices logins - my recommendation is to improve verification protocols for new devices   
+* optimization simulation can go in here    
+* increase usage of voice challenges for new devices
+
+
+## Notes 
+
+### Fraud Insights: 
+
+* see more fraud on the extrems of account age - both young and old   
+
+fraud logins are failing pswd, if failed pswd -> voice challenge
+legit users are succeeding pswd challeng, but dont love email/SMS 
+
+### Discrepancies: 
+
+* non unique login IDs  
+* 71% of the unsuccessful logins have NULL model_score  
+
+
+### To Me: 
+
+* model separate fraud really well, simulate performance with arbitrary TH  
+* same session, same device, all logins (3) are fraud on the same day, very quick session time
+* only 3 unique case IDs  
+* I see some in-week seasonality
+
+
+
